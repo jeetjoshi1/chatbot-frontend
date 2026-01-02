@@ -22,9 +22,19 @@ const Sidebar = ({ tab, setTab }) => {
     fetchUserPlan();
   }, [token]);
 
+
+
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
+    // 1. Clear everything
+    localStorage.removeItem('token'); 
+    localStorage.clear(); // Optional: clears everything else
+    
+    // 2. Immediate Redirect to Landing or Login
+    // use { replace: true } so they can't click 'Back' to return to the dashboard
+    navigate('/', { replace: true });
+    
+    // 3. Optional: Force a window reload to clear any remaining memory state
+    window.location.reload(); 
   };
 
   return (
