@@ -34,7 +34,6 @@ const Sidebar = ({ tab, setTab }) => {
     navigate('/', { replace: true });
     
     // 3. Optional: Force a window reload to clear any remaining memory state
-    window.location.reload(); 
   };
 
   return (
