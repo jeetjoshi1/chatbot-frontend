@@ -139,12 +139,7 @@ console.log(user)
 
         {/* Lab Tab */}
         {tab === 'lab' && (
-          <LabTab 
-            settings={config}
-            updateSettings={setConfig}
-            widgetId={widgetId}
-            fetching={fetching}
-          />
+          <LabTab/>
         )}
 
         {/* Domains Tab */}

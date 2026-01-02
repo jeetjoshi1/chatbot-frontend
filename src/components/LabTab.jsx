@@ -1,97 +1,175 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, Loader2, Palette, MessageSquare, Maximize, ShieldCheck, RefreshCcw } from 'lucide-react';
 
-const LabTab = ({ settings, updateSettings, widgetId, fetching }) => {
+const LabTab = () => {
+  const [config, setConfig] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const iframeRef = useRef(null);
 
-  // If we are fetching and have no data, show a spinner. 
-  // Otherwise, if we have settings (even defaults), show the Lab.
-  if (fetching && !settings.botName) {
-    return (
-      <div className="flex flex-col h-full w-full items-center justify-center bg-[#050505]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
-        <p className="text-gray-500 font-mono text-[10px] uppercase tracking-widest">Waking up the server...</p>
-      </div>
-    );
-  }
-
-  // Send settings to the widget every time they change
+  // 1. Fetch initial configuration
   useEffect(() => {
-    window.postMessage({
-      type: 'WIDGET_CONFIG_UPDATE',
-      config: settings
-    }, '*');
-  }, [settings]);
+    const fetchConfig = async () => {
+      const widgetId = localStorage.getItem('widgetId');
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/widget/config/${widgetId}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        const data = await res.json();
+        if (res.ok) setConfig(data);
+      } catch (err) {
+        console.error("Fetch failed", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchConfig();
+  }, []);
 
-  const handleChange = (key, value) => {
-    updateSettings(prev => ({ ...prev, [key]: value }));
+  // 2. LIVE UPDATE: Send config to iframe whenever it changes
+  useEffect(() => {
+    if (iframeRef.current && config) {
+      iframeRef.current.contentWindow.postMessage({
+        type: 'WIDGET_LAB_UPDATE',
+        config: config
+      }, '*');
+    }
+  }, [config]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const stylesOnly = {
+      primaryColor: config.primaryColor,
+      userBubbleBg: config.userBubbleBg,
+      userBubbleText: config.userBubbleText,
+      botBubbleBg: config.botBubbleBg,
+      botBubbleText: config.botBubbleText,
+      headerTextColor: config.headerTextColor,
+      chatBg: config.chatBg,
+      botName: config.botName,
+      welcomeMessage: config.welcomeMessage,
+      fontSize: config.fontSize,
+      borderRadius: config.borderRadius,
+      bubbleRadius: config.bubbleRadius,
+    };
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/widget/update-styles`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}` 
+        },
+        body: JSON.stringify({ ...stylesOnly }),
+      });
+      if (res.ok) alert("WIDGET_DNA_SYNCED");
+    } catch (err) {
+      alert("SAVE_ERROR");
+    } finally {
+      setSaving(false);
+    }
   };
 
+  if (loading || !config) return <div className="h-full bg-black flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" /></div>;
+
+  const widgetId = localStorage.getItem('widgetId');
+  const widgetPreviewHtml = `
+    <!DOCTYPE html>
+    <html>
+      <body>
+        <script> window.isTestMode = true; </script>
+        <script src="${import.meta.env.VITE_API_URL}/chat-widget.js" data-id="${widgetId}"></script>
+      </body>
+    </html>
+  `;
+
   return (
-    <div className="flex h-full w-full bg-[#0a0a0a]">
-      {/* LEFT: SETTINGS SIDEBAR */}
-      <div className="w-80 h-full border-r border-white/10 bg-[#050505] p-8 overflow-y-auto space-y-8">
-        <div>
-          <h2 className="text-3xl font-black italic tracking-tighter uppercase mb-2">The Lab</h2>
-          <div className="h-1 w-12 bg-indigo-500"></div>
+    <div className="flex h-screen bg-[#050505] text-white overflow-hidden">
+      {/* SIDEBAR */}
+      <div className="w-[400px] border-r border-white/5 bg-[#0a0a0a] p-8 overflow-y-auto custom-scrollbar">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-black italic uppercase tracking-tighter">Lab</h1>
+          </div>
         </div>
 
-        {/* Input: Bot Name */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Assistant Identity</label>
-          <input 
-            className="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-sm focus:border-indigo-500 outline-none transition-all"
-            value={settings.botName}
-            onChange={(e) => handleChange('botName', e.target.value)}
-          />
-        </div>
-
-        {/* Input: Primary Color */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Brand Color</label>
-          <div className="flex gap-4">
-            <input 
-              type="color"
-              className="w-12 h-12 rounded-lg bg-transparent border-none cursor-pointer"
-              value={settings.primaryColor}
-              onChange={(e) => handleChange('primaryColor', e.target.value)}
-            />
-            <div className="flex-1 bg-white/5 p-3 rounded-xl border border-white/10 font-mono text-xs flex items-center">
-              {settings.primaryColor}
+        <div className="space-y-8">
+          {/* IDENTITY SECTION */}
+          <section className="space-y-4">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+              <MessageSquare size={14} /> Identity & Content
+            </label>
+            <div className="space-y-3">
+              <div>
+                <span className="text-[9px] text-gray-600 font-bold ml-1">BOT_NAME</span>
+                <input 
+                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs focus:border-indigo-500 transition-all outline-none"
+                  value={config.botName}
+                  onChange={(e) => setConfig({...config, botName: e.target.value})}
+                />
+              </div>
+              <div>
+                <span className="text-[9px] text-gray-600 font-bold ml-1">WELCOME_MESSAGE</span>
+                <textarea 
+                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs h-24 resize-none focus:border-indigo-500 transition-all outline-none"
+                  value={config.welcomeMessage}
+                  onChange={(e) => setConfig({...config, welcomeMessage: e.target.value})}
+                />
+              </div>
             </div>
-          </div>
-        </div>
+          </section>
 
-        {/* Bubble Colors */}
-        <div className="space-y-4 pt-6 border-t border-white/5">
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-400 font-bold uppercase">User Bubble</span>
-            <input type="color" value={settings.userBubbleBg} onChange={(e) => handleChange('userBubbleBg', e.target.value)} />
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-400 font-bold uppercase">Bot Bubble</span>
-            <input type="color" value={settings.botBubbleBg} onChange={(e) => handleChange('botBubbleBg', e.target.value)} />
-          </div>
-        </div>
+          {/* VISUALS SECTION */}
+          <section className="space-y-4 pt-4 border-t border-white/5">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+              <Palette size={14} /> Branding Colors
+            </label>
+            <div className="grid grid-cols-1 gap-3">
+              {[
+                { label: 'Primary Theme', key: 'primaryColor' },
+                { label: 'User Bubble', key: 'userBubbleBg' },
+                { label: 'Bot Bubble', key: 'botBubbleBg' },
+                { label: 'Chat Background', key: 'chatBg' }
+              ].map((item) => (
+                <div key={item.key} className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5 hover:border-white/10 transition-all">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">{item.label}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[9px] font-mono text-gray-600 uppercase">{config[item.key]}</span>
+                    <input 
+                      type="color" 
+                      value={config[item.key]} 
+                      onChange={(e) => setConfig({...config, [item.key]: e.target.value})}
+                      className="w-6 h-6 bg-transparent border-none cursor-pointer rounded overflow-hidden"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
-        <button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black italic uppercase p-4 rounded-xl transition-all shadow-lg shadow-indigo-500/20 active:scale-95">
-          Save Changes
-        </button>
+          <button 
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg shadow-indigo-500/10 active:scale-[0.98]"
+          >
+            {saving ? <Loader2 className="animate-spin" size={18} /> : <><ShieldCheck size={18} /> Deploy Changes</>}
+          </button>
+        </div>
       </div>
 
-      {/* RIGHT: PREVIEW AREA */}
-      <div className="flex-1 h-full flex items-center justify-center relative bg-[#050505]">
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
-        
-        <div className="z-10 flex flex-col items-center">
-          <div className="mb-10 px-6 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
-             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-400">Live Simulation</span>
-          </div>
-
-          {/* THE CUSTOM ELEMENT */}
-          <div className="scale-110">
-            <ai-chat-widget widget-id={widgetId}></ai-chat-widget>
-          </div>
+      {/* PREVIEW WINDOW */}
+      <div className="flex-1 bg-black flex items-center justify-center relative">
+        <div className="absolute top-8 flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full">
+           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+           <span className="text-[10px] font-black uppercase tracking-tighter text-gray-400">Sandbox_Preview_Active</span>
         </div>
+
+        {/* The Phone/Browser Mockup */}
+          <iframe 
+            ref={iframeRef}
+            srcDoc={widgetPreviewHtml}
+            className="w-full h-full border-none"
+          />
       </div>
     </div>
   );
