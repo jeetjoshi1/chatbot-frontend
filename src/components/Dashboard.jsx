@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 
 const Dashboard = () => {
   const [tab, setTab] = useState('dashboard');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
   const [fetching, setFetching] = useState(true);
 
@@ -41,6 +41,7 @@ useEffect(() => {
             });
             const data = await res.json();
             setUser(data);
+            setLoading(false);
         } catch (err) {
             console.error("Profile fetch failed", err);
         }
@@ -131,7 +132,7 @@ console.log(user)
       
       <main className="flex-1 overflow-auto bg-[radial-gradient(circle_at_top_right,_#111_0%,_#050505_50%)]">
         {/* Workspace Tab */}
-        {tab === 'dashboard' && <WorkspaceTab widgetId={widgetId} user={user}/>}
+        {tab === 'dashboard' && <WorkspaceTab widgetId={widgetId} user={user} isLoading={loading}/>}
 
         {/* Knowledge Tab - Integrated Here */}
         {tab === 'knowledge' && <KnowledgeTab widgetId={widgetId} />}
