@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Loader2, Palette, MessageSquare, Maximize, ShieldCheck, RefreshCcw } from 'lucide-react';
+import { Save, Loader2, Palette, MessageSquare, Maximize, ShieldCheck, RefreshCcw, Sparkles } from 'lucide-react';
 
 const LabTab = () => {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const iframeRef = useRef(null);
 
   // 1. Fetch initial configuration
@@ -35,6 +36,29 @@ const LabTab = () => {
       }, '*');
     }
   }, [config]);
+
+  const handleAIWelcome = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/widget/generate-welcome`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setConfig({ ...config, welcomeMessage: data.welcomeMessage });
+      } else {
+        alert(data.error || "Generation failed");
+      }
+    } catch (err) {
+      console.error("AI Generation Error", err);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -109,7 +133,13 @@ const LabTab = () => {
                 />
               </div>
               <div>
-                <span className="text-[9px] text-gray-600 font-bold ml-1">WELCOME_MESSAGE</span>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[9px] text-gray-600 font-bold ml-1">WELCOME_MESSAGE</span>
+                  <button onClick={handleAIWelcome} disabled={generating} className="text-[9px] font-black text-indigo-500 hover:text-indigo-400 flex items-center gap-1 transition-all">
+                    {generating ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                    GENERATE WITH AI
+                  </button>
+                </div>
                 <textarea 
                   className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs h-24 resize-none focus:border-indigo-500 transition-all outline-none"
                   value={config.welcomeMessage}
@@ -119,33 +149,63 @@ const LabTab = () => {
             </div>
           </section>
 
-          {/* VISUALS SECTION */}
-          <section className="space-y-4 pt-4 border-t border-white/5">
-            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
-              <Palette size={14} /> Branding Colors
-            </label>
-            <div className="grid grid-cols-1 gap-3">
-              {[
-                { label: 'Primary Theme', key: 'primaryColor' },
-                { label: 'User Bubble', key: 'userBubbleBg' },
-                { label: 'Bot Bubble', key: 'botBubbleBg' },
-                { label: 'Chat Background', key: 'chatBg' }
-              ].map((item) => (
-                <div key={item.key} className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5 hover:border-white/10 transition-all">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase">{item.label}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[9px] font-mono text-gray-600 uppercase">{config[item.key]}</span>
-                    <input 
-                      type="color" 
-                      value={config[item.key]} 
-                      onChange={(e) => setConfig({...config, [item.key]: e.target.value})}
-                      className="w-6 h-6 bg-transparent border-none cursor-pointer rounded overflow-hidden"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+   {/* VISUALS SECTION - PRO DESIGNER UI */}
+<section className="space-y-4 pt-4 border-t border-white/5">
+  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+    <Palette size={14} /> UI Chromatics
+  </label>
+  <div className="grid grid-cols-1 gap-3">
+    {[
+      { label: 'Primary Theme', key: 'primaryColor' },
+      { label: 'User Bubble', key: 'userBubbleBg' },
+      { label: 'Bot Bubble', key: 'botBubbleBg' },
+      { label: 'Chat Background', key: 'chatBg' }
+    ].map((item) => (
+      <div key={item.key} className="flex items-center gap-3 bg-white/5 p-2 pr-4 rounded-xl border border-white/5 hover:border-white/10 transition-all">
+        
+        {/* THE "CUSTOM" LOOKING SWATCH */}
+        <div className="relative w-10 h-10 shrink-0 rounded-lg overflow-hidden shadow-lg ring-1 ring-white/10">
+          <input 
+            type="color" 
+            value={config[item.key]} 
+            onChange={(e) => setConfig({...config, [item.key]: e.target.value})}
+            className="absolute inset-0 w-[200%] h-[200%] -top-1/2 -left-1/2 cursor-pointer border-none opacity-0 z-10"
+          />
+          {/* This div shows the actual color but looks like a sleek UI element */}
+          <div 
+            className="absolute inset-0 pointer-events-none" 
+            style={{ backgroundColor: config[item.key] }}
+          />
+        </div>
+
+        {/* HEX INPUT ENGINE */}
+        <div className="flex-1 flex flex-col">
+          <span className="text-[9px] font-bold text-gray-600 uppercase tracking-tight leading-none mb-1">
+            {item.label}
+          </span>
+          <div className="flex items-center">
+            <span className="text-gray-500 text-xs font-mono mr-1">#</span>
+            <input 
+              type="text"
+              value={config[item.key].replace('#', '')}
+              onChange={(e) => {
+                const hex = e.target.value;
+                if (/^[0-9A-Fa-f]{0,6}$/.test(hex)) {
+                  setConfig({...config, [item.key]: `#${hex}`});
+                }
+              }}
+              className="bg-transparent text-sm font-mono uppercase outline-none text-indigo-400 w-full tracking-widest"
+              maxLength={6}
+            />
+          </div>
+        </div>
+
+        {/* SMALL VISUAL INDICATOR */}
+        <div className="w-1 h-6 rounded-full" style={{ backgroundColor: config[item.key] }} />
+      </div>
+    ))}
+  </div>
+</section>
 
           <button 
             onClick={handleSave}
@@ -163,13 +223,7 @@ const LabTab = () => {
            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
            <span className="text-[10px] font-black uppercase tracking-tighter text-gray-400">Sandbox_Preview_Active</span>
         </div>
-
-        {/* The Phone/Browser Mockup */}
-          <iframe 
-            ref={iframeRef}
-            srcDoc={widgetPreviewHtml}
-            className="w-full h-full border-none"
-          />
+        <iframe ref={iframeRef} srcDoc={widgetPreviewHtml} className="w-full h-full border-none" />
       </div>
     </div>
   );
