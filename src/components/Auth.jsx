@@ -43,30 +43,49 @@ const Auth = () => {
     if (e.key === "Backspace" && !otp[index] && index > 0) { inputRefs.current[index - 1].focus(); }
   };
 
-  const handleAuthSubmit = async (e) => {
+ const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!isLogin && strength < 3) { setError("SECURITY REQUIREMENTS NOT MET"); return; }
-    if(!isLogin && !firstName || !lastName) { setError("INCOMPLETE CREDENTIALS"); return; }
-    if(password !== confirmPassword && !isLogin) { setError("PASSWORDS DO NOT MATCH"); return; }
+    
+    // Validation for Signup only
+    if (!isLogin) {
+      if (strength < 3) { setError("SECURITY REQUIREMENTS NOT MET"); return; }
+      if (!firstName || !lastName) { setError("INCOMPLETE CREDENTIALS"); return; }
+      if (password !== confirmPassword) { setError("PASSWORDS DO NOT MATCH"); return; }
+    }
 
     setLoading(true);
     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/signup';
+    
+    // Only include names in the payload if signing up
+    const payload = isLogin 
+      ? { email, password } 
+      : { firstName, lastName, email, password };
+
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName, lastName, email, password }),
+        body: JSON.stringify(payload),
       });
+      
       const data = await res.json();
       if (res.ok) {
         if (isLogin) {
           localStorage.setItem('token', data.token);
           localStorage.setItem('widgetId', data.widgetId);
           navigate('/dashboard');
-        } else { setStep('verify'); }
-      } else { setError(data.error || "INITIALIZATION FAILED"); }
-    } catch (err) { setError("CONNECTION TERMINATED"); } finally { setLoading(false); }
+        } else { 
+          setStep('verify'); 
+        }
+      } else { 
+        setError(data.error || "INITIALIZATION FAILED"); 
+      }
+    } catch (err) { 
+      setError("CONNECTION TERMINATED"); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const handleVerifySubmit = async (e) => {
