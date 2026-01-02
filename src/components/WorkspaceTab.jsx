@@ -20,7 +20,7 @@ const WorkspaceTab = ({ widgetId, user, stats, setActiveTab, isLoading }) => {
   const usagePercent = Math.min(Math.round((currentUsage / usageLimit) * 100), 100);
   const domainCount = user?.connectedDomains || 0;
 
-  const snippetCode = `<script src="${import.meta.env.VITE_API_URL}chat-widget.js" data-id="${widgetId}"></script>`;
+  const snippetCode = `<script src="${import.meta.env.VITE_API_URL}/chat-widget.js" data-id="${widgetId}"></script>`;
 
   useEffect(() => {
     setTimeout(() => setAnimateProgress(true), 500);
